@@ -1,10 +1,7 @@
 import React, { useContext, useEffect, useReducer, useState } from "react";
 import { Button, Card, CardContent, TextField } from "@material-ui/core";
 import Chart from "./Chart";
-import Refresh from "./refresh.svg";
-
-const imageRef =
-    "https://scontent-bog1-1.xx.fbcdn.net/v/t1.0-9/117335165_3479340692133084_5927977114661400265_o.jpg?_nc_cat=100&_nc_sid=730e14&_nc_eui2=AeGQH10Ik41Z4q7r_iYVeRucYEI2slV4h4BgQjayVXiHgIlGpEDEWMNXz2WHbDEkLlwWh8TkwIbdpHyMf_A7swFG&_nc_ohc=LQgjy0qe9yoAX-U4k5S&_nc_ht=scontent-bog1-1.xx&oh=ff0fff86bbe8b6a4535f2efaadd9d6b1&oe=5F56BA2A";
+//import horno from "./Horno.png"
 
 export default function SistemaScada() {
     const [encendido, setEncendido] = useState(false);
@@ -16,6 +13,17 @@ export default function SistemaScada() {
     const [referenciaChart, setReferenciaChart] = useState([]);
     const [tiempoChart, setTiempoChart] = useState([0]);
     const [instante, setInstante] = useState(false);
+    var exportInfo = [];
+
+    function downloadTxtFile(texto) {
+        const element = document.createElement("a");
+        const file = new Blob([texto],
+            { type: 'text/plain;charset=utf-8' });
+        element.href = URL.createObjectURL(file);
+        element.download = "Reporte.txt";
+        document.body.appendChild(element);
+        element.click();
+    }
 
     useEffect(() => {
         if (encendido) {
@@ -27,24 +35,15 @@ export default function SistemaScada() {
     }, [encendido]);
 
     useEffect(() => {
-        if (temperatura >= referencia && encendido) {
-            setEncendido(false);
-        }
-        if (encendido || referenciaChart.length > 0) {
-            aplicarFormulaDeTemperatura();
-            let pointsTemperatura = temperaturaChart;
-            let pointsReferencia = referenciaChart;
-            let pointsTiempo = tiempoChart;
-            if (temperatura > 0) {
-                pointsTemperatura.push(temperatura);
-                pointsTiempo.push(pointsTiempo[tiempoChart.length - 1] + parseInt(periodoDeMuestreo, 10));
-                pointsReferencia.push(referencia);
-            }
-            setTemperaturaChart(pointsTemperatura);
-            setTiempoChart(pointsTiempo);
-            setReferenciaChart(pointsReferencia);
-        }
+        setTemperaturTimeOut()
     }, [temperatura]);
+
+    useEffect(()=>{
+        if(voltaje!=0 && temperatura!=0){
+            console.log("eo")
+            aplicarFormulaDeTemperatura()
+        }
+    },[voltaje])
 
     useEffect(() => {
         if (!instante) {
@@ -52,25 +51,58 @@ export default function SistemaScada() {
         }
     }, [instante]);
 
+    function setTemperaturTimeOut(){
+        let pointsTemperatura = temperaturaChart;
+        let pointsReferencia = referenciaChart;
+        let pointsTiempo = tiempoChart;
+        if (temperatura > 0) {
+            aplicarFormulaDeTemperatura();
+            pointsTemperatura.push(temperatura);
+            pointsTiempo.push(pointsTiempo[tiempoChart.length - 1] + parseInt(periodoDeMuestreo, 10));
+            pointsReferencia.push(referencia);
+            setTemperaturaChart(pointsTemperatura);
+            setTiempoChart(pointsTiempo);
+            setReferenciaChart(pointsReferencia);
+            setInstante(false)
+            setTimeout(()=>{
+                setInstante(true)
+            },25)
+        }
+    }
+
+
     function aplicarFormulaDeTemperatura() {
-        if (encendido && temperatura <= referencia) {
+
+        if (voltaje!=0 ) {
             setTimeout(() => {
-                if (temperatura >= referencia) setTemperatura(temperatura - periodoDeMuestreo);
-                else setTemperatura(voltaje * periodoDeMuestreo + temperatura);
+                setTemperatura(voltaje * periodoDeMuestreo + temperatura);
             }, periodoDeMuestreo * 1000);
-        } else if (voltaje === 0 && temperatura > 0) {
+        }
+        else if (temperatura >0) {
             setTimeout(() => {
-                setTemperatura(temperatura - periodoDeMuestreo);
+                setTemperaturTimeOut();
             }, periodoDeMuestreo * 1000);
         }
     }
 
+    function exportar() {
+        exportInfo = tiempoChart.map((element, i) => {
+            return {
+                tiempo: element,
+                temperatura: temperaturaChart[i - 1]? temperaturaChart[i - 1]:0
+            }
+        })
+        let texto="";
+        exportInfo.map((element)=>{
+            texto+=JSON.stringify(element)+"\n";
+        });
+        console.log(texto);
+        downloadTxtFile(texto);
+
+    }
+
     function encenderHorno() {
-        if (referencia && voltaje && periodoDeMuestreo) {
-            setEncendido(true);
-        } else {
-            alert("Debe llenar todos los campos para encender el horno");
-        }
+        setEncendido(!encendido);
     }
 
     return (
@@ -78,6 +110,7 @@ export default function SistemaScada() {
             <div style={{ display: "inline-block", width: "1%" }}>
                 <Card className="imagen" style={{ width: "300px", marginLeft: "30px", display: "inline-block" }}>
                     <h3 style={{ fontSize: "30px", fontFamily: "Arial", marginLeft: "100px" }}>Scada</h3>
+                    {/*  <img src={horno} style={{width:"200px", }}></img>*/}
                 </Card>
                 <Card style={{ marginLeft: "30px", width: "300px", display: "block" }}>
                     <CardContent>
@@ -127,12 +160,15 @@ export default function SistemaScada() {
                             {encendido ? "Apagar" : "Encender"}
                         </Button>{" "}
                         <Button
-                            style={{ display: "inline-block", marginTop: "10px", width: "20px" }}
-                            onClick={() => {
-                                setInstante(!instante);
-                            }}
+                            style={{ display: "inline-block", marginLeft: "50px", marginTop: "10px" }}
+                            onClick={() => exportar()}
                         >
-                            <img style={{ width: "30px" }} src={Refresh} />
+                            Exportar info
+                        </Button>
+                        <Button
+                            style={{ display: "inline-block", marginLeft: "70px", marginTop: "10px" }}
+                            onClick={()=> window.location.reload(true)}                        >
+                            Reiniciar
                         </Button>
                     </CardContent>
                 </Card>
@@ -151,6 +187,11 @@ export default function SistemaScada() {
                             }}
                         />
                     )}
+                    <Button
+                        style={{ display: "inline-block", marginLeft: "70px", marginTop: "10px" }}
+                        onClick={()=> console.log(temperaturaChart)}                        >
+                        oeoeoe
+                    </Button>
                 </CardContent>
             </Card>
         </div>

@@ -12,3 +12,5 @@ C
 src/SistemaScada.js,7/2/72e525566ef9dcc7425ba04eb6b1e7e4ebc3a751
 <
 src/Chart.js,3/c/3c069b1444130cfe462bd3a39fade162bb99311d
+?
+src/refresh.svg,4/5/458e152c61b65ada17a0a501624a7987286978d8
